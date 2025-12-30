@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>tuff chat</title>
+</head>
+<body>
+
+  <ul id="messages"></ul>
+
+  <input id="msg" placeholder="Type message">
+  <button id="sendBtn">Send</button>
+
+  <script>
+    // Prompt for username immediately on page load
+    let username = sessionStorage.getItem("username");
+    if (!username) {
+      username = prompt("Enter your name:");
+      if (!username) username = "Anonymous";
+      sessionStorage.setItem("username", username);
+    }
+
+    // Save globally so module code can access it
+    window.chatUsername = username;
+  </script>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      query,
+      orderBy,
+      onSnapshot
+    } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBcrwcppQSIkY2W9uF2oX61WsiLD4fd53I",
+      authDomain: "tuffchat-9bed7.firebaseapp.com",
+      projectId: "tuffchat-9bed7",
+      storageBucket: "tuffchat-9bed7.firebasestorage.app",
+      messagingSenderId: "1024456330904",
+      appId: "1:1024456330904:web:827d34d04d230f02630aed"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const messagesRef = collection(db, "messages");
+
+    const sendButton = document.getElementById("sendBtn");
+    const input = document.getElementById("msg");
+
+    sendButton.addEventListener("click", async () => {
+      if (!input.value) return;
+
+      await addDoc(messagesRef, {
+        text: input.value,
+        name: window.chatUsername,
+        time: Date.now()
+      });
+
+      input.value = "";
+    });
+
+    const q = query(messagesRef, orderBy("time"));
+    onSnapshot(q, snapshot => {
+      const ul = document.getElementById("messages");
+      ul.innerHTML = "";
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const li = document.createElement("li");
+        li.textContent = `${data.name}: ${data.text}`;
+        ul.appendChild(li);
+      });
+    });
+  </script>
+
+</body>
+</html>
