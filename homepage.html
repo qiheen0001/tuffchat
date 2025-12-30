@@ -3,26 +3,133 @@
 <head>
   <meta charset="UTF-8">
   <title>tuff chat</title>
-</head>
-<body>
-
-  <ul id="messages"></ul>
-
-  <input id="msg" placeholder="Type message">
-  <button id="sendBtn">Send</button>
-
-  <script>
-    // Prompt for username immediately on page load
-    let username = sessionStorage.getItem("username");
-    if (!username) {
-      username = prompt("Enter your name:");
-      if (!username) username = "Anonymous";
-      sessionStorage.setItem("username", username);
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: Arial, Helvetica, sans-serif;
+      background-color: #222;
     }
 
-    // Save globally so module code can access it
-    window.chatUsername = username;
-  </script>
+    /* Fullscreen overlay for name input */
+    #nameOverlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #222;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    #nameOverlay input {
+      padding: 10px;
+      font-size: 18px;
+      margin-top: 10px;
+      width: 250px;
+      border: 2px solid #333;
+      border-radius: 10px;
+    }
+
+    #nameOverlay button {
+      padding: 10px 20px;
+      font-size: 18px;
+      margin-top: 10px;
+      cursor: pointer;
+      border: 2px solid #333;
+      border-radius: 10px;
+    }
+
+    /* Chat UI */
+    #chatContainer {
+      display: none;
+      padding: 20px;
+    }
+
+    #messages {
+      list-style: none;
+      padding: 10px;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+
+    #messages li {
+      display: inline-block;
+      clear: both;
+      padding: 10px 15px;
+      margin: 5px 0;
+      border-radius: 20px;
+      max-width: 70%;
+      word-wrap: break-word;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    /* Your messages */
+    #messages li.self {
+      background-color: #25D366;
+      color: white;
+      float: right;
+      text-align: right;
+    }
+
+    /* Other messages */
+    #messages li.other {
+      background-color: #333;
+      color: white;
+      float: left;
+      text-align: left;
+    }
+
+    .message-name {
+      font-weight: bold;
+      margin-bottom: 3px;
+      display: block;
+    }
+
+    .message-time {
+      font-size: 0.75em;
+      opacity: 0.7;
+      margin-top: 5px;
+      display: block;
+    }
+
+    #msg {
+      width: 80%;
+      padding: 8px;
+      font-size: 16px;
+      border: 2px solid #333;
+      border-radius: 10px;
+    }
+
+    #sendBtn {
+      padding: 8px 12px;
+      font-size: 16px;
+      border: 2px solid #333;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <!-- Full-screen name overlay -->
+  <div id="nameOverlay">
+    <h1>Enter your name to join the chat</h1>
+    <input type="text" id="nameInput" placeholder="Your name">
+    <button id="enterBtn">Enter Chat</button>
+  </div>
+
+  <!-- Chat container -->
+  <div id="chatContainer">
+    <ul id="messages"></ul>
+    <input id="msg" placeholder="Type message">
+    <button id="sendBtn">Send</button>
+  </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
@@ -47,34 +154,82 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const messagesRef = collection(db, "messages");
+    const q = query(messagesRef, orderBy("time"));
 
-    const sendButton = document.getElementById("sendBtn");
-    const input = document.getElementById("msg");
+    const nameOverlay = document.getElementById("nameOverlay");
+    const enterBtn = document.getElementById("enterBtn");
+    const nameInput = document.getElementById("nameInput");
+    const chatContainer = document.getElementById("chatContainer");
+    const sendBtn = document.getElementById("sendBtn");
+    const msgInput = document.getElementById("msg");
+    const messagesList = document.getElementById("messages");
 
-    sendButton.addEventListener("click", async () => {
-      if (!input.value) return;
+    // Load name from sessionStorage
+    let username = sessionStorage.getItem("username") || "";
 
-      await addDoc(messagesRef, {
-        text: input.value,
-        name: window.chatUsername,
-        time: Date.now()
-      });
+    function enterChat() {
+      const name = nameInput.value.trim();
+      if (!name) return alert("Please enter a name.");
+      username = name;
+      sessionStorage.setItem("username", username);
+      nameOverlay.style.display = "none";
+      chatContainer.style.display = "block";
+    }
 
-      input.value = "";
+    if (username) {
+      nameOverlay.style.display = "none";
+      chatContainer.style.display = "block";
+    } else {
+      nameOverlay.style.display = "flex";
+      chatContainer.style.display = "none";
+    }
+
+    enterBtn.addEventListener("click", enterChat);
+    nameInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") enterChat();
     });
 
-    const q = query(messagesRef, orderBy("time"));
+    sendBtn.addEventListener("click", async () => {
+      if (!msgInput.value) return;
+      await addDoc(messagesRef, {
+        text: msgInput.value,
+        name: username,
+        time: Date.now()
+      });
+      msgInput.value = "";
+    });
+
+    msgInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") sendBtn.click();
+    });
+
+    // Real-time messages with names, time, and smooth animation
     onSnapshot(q, snapshot => {
-      const ul = document.getElementById("messages");
-      ul.innerHTML = "";
+      messagesList.innerHTML = "";
       snapshot.forEach(doc => {
         const data = doc.data();
         const li = document.createElement("li");
-        li.textContent = `${data.name}: ${data.text}`;
-        ul.appendChild(li);
+
+        // Bubble type
+        li.className = (data.name === username) ? "self" : "other";
+
+        // Format time HH:MM AM/PM
+        const date = new Date(data.time);
+        let hours = date.getHours();
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        if (hours === 0) hours = 12;
+        const timeString = `${hours}:${minutes} ${ampm}`;
+
+        // Include name above message
+        li.innerHTML = `<span class="message-name">${data.name}</span>${data.text}<span class="message-time">${timeString}</span>`;
+        messagesList.appendChild(li);
       });
+
+      // Smooth scroll to newest message
+      messagesList.scrollTo({ top: messagesList.scrollHeight, behavior: "smooth" });
     });
   </script>
-
 </body>
 </html>
