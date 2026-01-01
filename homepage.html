@@ -3,31 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <title>tuff chat</title>
+
   <style>
-    body, html {
+    htmlbody, html {
       margin: 0;
       padding: 0;
       height: 100%;
       font-family: Arial, Helvetica, sans-serif;
       background-color: #222;
+      color: white;
     }
 
-    /* Fullscreen overlay for name input */
+    /* Name overlay */
     #nameOverlay {
       position: fixed;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: #222;
-      color: white;
+      inset: 0;
+      background: #222;
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      align-items: center;
+      justify-content: centre;
+      align-items: centre;
       z-index: 1000;
     }
 
-    #nameOverlay input {
+    #nameOverlay input,
+    #nameOverlay button {
       padding: 10px;
       font-size: 18px;
       margin-top: 10px;
@@ -36,16 +36,7 @@
       border-radius: 10px;
     }
 
-    #nameOverlay button {
-      padding: 10px 20px;
-      font-size: 18px;
-      margin-top: 10px;
-      cursor: pointer;
-      border: 2px solid #333;
-      border-radius: 10px;
-    }
-
-    /* Chat UI */
+    /* Chat */
     #chatContainer {
       display: none;
       padding: 20px;
@@ -54,7 +45,7 @@
     #messages {
       list-style: none;
       padding: 10px;
-      max-height: 60vh;
+      max-height: 65vh;
       overflow-y: auto;
     }
 
@@ -62,72 +53,69 @@
       display: inline-block;
       clear: both;
       padding: 10px 15px;
-      margin: 5px 0;
+      margin: 6px 0;
       border-radius: 20px;
       max-width: 70%;
       word-wrap: break-word;
-      transition: all 0.3s ease;
-      position: relative;
     }
 
-    /* Your messages */
-    #messages li.self {
-      background-color: #25D366;
-      color: white;
+    .self {
+      background: #25D366;
       float: right;
       text-align: right;
     }
 
-    /* Other messages */
-    #messages li.other {
-      background-color: #333;
-      color: white;
+    .other {
+      background: #333;
       float: left;
       text-align: left;
     }
 
     .message-name {
       font-weight: bold;
-      margin-bottom: 3px;
+      font-size: 0.9em;
       display: block;
+      margin-bottom: 3px;
     }
 
     .message-time {
       font-size: 0.75em;
       opacity: 0.7;
-      margin-top: 5px;
       display: block;
+      margin-top: 4px;
     }
 
     #msg {
-      width: 80%;
-      padding: 8px;
+      width: 78%;
+      padding: 10px;
       font-size: 16px;
-      border: 2px solid #333;
       border-radius: 10px;
+      border: 2px solid #333;
     }
 
     #sendBtn {
-      padding: 8px 12px;
+      padding: 10px 14px;
       font-size: 16px;
-      border: 2px solid #333;
       border-radius: 10px;
+      border: 2px solid #333;
       cursor: pointer;
     }
   </style>
 </head>
+
 <body>
-  <!-- Full-screen name overlay -->
+
+  <!-- Name entry -->
   <div id="nameOverlay">
-    <h1>Enter your name to join the chat</h1>
-    <input type="text" id="nameInput" placeholder="Your name">
-    <button id="enterBtn">Enter Chat</button>
+    <h1>Enter your name</h1>
+    <input id="nameInput" placeholder="Your name">
+    <button id="enterBtn">Enter chat</button>
   </div>
 
-  <!-- Chat container -->
+  <!-- Chat -->
   <div id="chatContainer">
     <ul id="messages"></ul>
-    <input id="msg" placeholder="Type message">
+    <input id="msg" placeholder="Type a message">
     <button id="sendBtn">Send</button>
   </div>
 
@@ -153,23 +141,35 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+
     const messagesRef = collection(db, "messages");
     const q = query(messagesRef, orderBy("time"));
 
     const nameOverlay = document.getElementById("nameOverlay");
-    const enterBtn = document.getElementById("enterBtn");
     const nameInput = document.getElementById("nameInput");
-    const chatContainer = document.getElementById("chatContainer");
-    const sendBtn = document.getElementById("sendBtn");
-    const msgInput = document.getElementById("msg");
-    const messagesList = document.getElementById("messages");
+    const enterBtn = document.getElementById("enterBtn");
 
-    // Load name from sessionStorage
+    const chatContainer = document.getElementById("chatContainer");
+    const messagesList = document.getElementById("messages");
+    const msgInput = document.getElementById("msg");
+    const sendBtn = document.getElementById("sendBtn");
+
+    /* UNIQUE USER ID (fixes the bug) */
+    let userId = sessionStorage.getItem("userId");
+    if (!userId) {
+      userId = crypto.randomUUID();
+      sessionStorage.setItem("userId", userId);
+    }
+
     let username = sessionStorage.getItem("username") || "";
 
     function enterChat() {
       const name = nameInput.value.trim();
-      if (!name) return alert("Please enter a name.");
+      if (!name) {
+        alert("Please enter a name");
+        return;
+      }
+
       username = name;
       sessionStorage.setItem("username", username);
       nameOverlay.style.display = "none";
@@ -179,57 +179,59 @@
     if (username) {
       nameOverlay.style.display = "none";
       chatContainer.style.display = "block";
-    } else {
-      nameOverlay.style.display = "flex";
-      chatContainer.style.display = "none";
     }
 
-    enterBtn.addEventListener("click", enterChat);
-    nameInput.addEventListener("keypress", (e) => {
+    enterBtn.onclick = enterChat;
+    nameInput.onkeypress = e => {
       if (e.key === "Enter") enterChat();
-    });
+    };
 
-    sendBtn.addEventListener("click", async () => {
-      if (!msgInput.value) return;
+    sendBtn.onclick = async () => {
+      if (!msgInput.value.trim()) return;
+
       await addDoc(messagesRef, {
         text: msgInput.value,
         name: username,
+        userId: userId,
         time: Date.now()
       });
+
       msgInput.value = "";
-    });
+    };
 
-    msgInput.addEventListener("keypress", (e) => {
+    msgInput.onkeypress = e => {
       if (e.key === "Enter") sendBtn.click();
-    });
+    };
 
-    // Real-time messages with names, time, and smooth animation
     onSnapshot(q, snapshot => {
       messagesList.innerHTML = "";
+
       snapshot.forEach(doc => {
         const data = doc.data();
         const li = document.createElement("li");
 
-        // Bubble type
-        li.className = (data.name === username) ? "self" : "other";
+        li.className = data.userId === userId ? "self" : "other";
 
-        // Format time HH:MM AM/PM
         const date = new Date(data.time);
-        let hours = date.getHours();
-        const minutes = date.getMinutes().toString().padStart(2, '0');
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        hours = hours % 12;
-        if (hours === 0) hours = 12;
-        const timeString = `${hours}:${minutes} ${ampm}`;
+        const hours = date.getHours() % 12 || 12;
+        const minutes = String(date.getMinutes()).padStart(2, "0");
+        const ampm = date.getHours() >= 12 ? "PM" : "AM";
 
-        // Include name above message
-        li.innerHTML = `<span class="message-name">${data.name}</span>${data.text}<span class="message-time">${timeString}</span>`;
+        li.innerHTML = `
+          <span class="message-name">${data.name}</span>
+          ${data.text}
+          <span class="message-time">${hours}:${minutes} ${ampm}</span>
+        `;
+
         messagesList.appendChild(li);
       });
 
-      // Smooth scroll to newest message
-      messagesList.scrollTo({ top: messagesList.scrollHeight, behavior: "smooth" });
+      messagesList.scrollTo({
+        top: messagesList.scrollHeight,
+        behaviour: "smooth"
+      });
     });
   </script>
+
 </body>
 </html>
