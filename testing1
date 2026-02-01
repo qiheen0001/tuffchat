@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>tuff chat</title>
+  <style>
+    html, body { margin:0; padding:0; height:100%; font-family:Arial; background:#222; color:white; }
+    #nameOverlay { position:fixed; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#222; }
+    #nameOverlay input, #nameOverlay button { padding:10px; margin-top:10px; width:250px; border-radius:10px; border:2px solid #333; font-size:16px; }
+    #chatContainer { display:none; padding:20px; }
+    #messages { list-style:none; max-height:65vh; overflow-y:auto; padding:10px; }
+    #messages li { display:inline-block; clear:both; padding:10px 15px; margin:6px 0; border-radius:20px; max-width:70%; word-wrap:break-word; }
+    .self { background:#25D366; float:right; text-align:right; }
+    .other { background:#333; float:left; text-align:left; }
+    .message-name { font-weight:bold; font-size:0.9em; display:block; margin-bottom:3px; }
+    .message-time { font-size:0.75em; opacity:0.7; display:block; margin-top:4px; }
+    #msg { width:78%; padding:10px; font-size:16px; border-radius:10px; border:2px solid #333; }
+    #sendBtn { padding:10px 14px; font-size:16px; border-radius:10px; border:2px solid #333; cursor:pointer; }
+  </style>
+</head>
+<body>
+
+<div id="nameOverlay">
+  <h1>Enter your name</h1>
+  <input id="nameInput" placeholder="Your name">
+  <button id="enterBtn">Enter chat</button>
+</div>
+
+<div id="chatContainer">
+  <ul id="messages"></ul>
+  <input id="msg" placeholder="Type a message">
+  <button id="sendBtn">Send</button>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+  import { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "...",
+    authDomain: "...",
+    projectId: "...",
+    storageBucket: "...",
+    messagingSenderId: "...",
+    appId: "..."
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+
+  // Enable login persistence
+  setPersistence(auth, browserLocalPersistence);
+
+  // Firestore
+  const messagesRef = collection(db, "messages");
+  const q = query(messagesRef, orderBy("time"));
+
+  const nameOverlay = document.getElementById("nameOverlay");
+  const nameInput = document.getElementById("nameInput");
+  const enterBtn = document.getElementById("enterBtn");
+
+  const chatContainer = document.getElementById("chatContainer");
+  const messagesList = document.getElementById("messages");
+  const msgInput = document.getElementById("msg");
+  const sendBtn = document.getElementById("sendBtn");
+
+  // Unique session user
+  let userId = sessionStorage.getItem("userId");
+  if (!userId) { userId = crypto.randomUUID(); sessionStorage.setItem("userId", userId); }
+
+  let username = sessionStorage.getItem("username") || "";
+
+  // Enter chat
+  function enterChat() {
+    const name = nameInput.value.trim();
+    if (!name) { alert("Enter a name"); return; }
+    username = name;
+    sessionStorage.setItem("username", username);
+    nameOverlay.style.display = "none";
+    chatContainer.style.display = "block";
+  }
+
+  if (username) {
+    nameOverlay.style.display = "none";
+    chatContainer.style.display = "block";
+  }
+
+  enterBtn.onclick = enterChat;
+  nameInput.onkeypress = e => { if (e.key === "Enter") enterChat(); };
+
+  // Listen for messages
+  onSnapshot(q, snapshot => {
+    messagesList.innerHTML = "";
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const li = document.createElement("li");
+      li.className = data.userId === userId ? "self" : "other";
+
+      const date = new Date(data.time?.seconds ? data.time.seconds * 1000 : Date.now());
+      const hours = date.getHours() % 12 || 12;
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+      const ampm = date.getHours() >= 12 ? "PM" : "AM";
+
+      li.innerHTML = `<span class="message-name">${data.name}</span>${data.text}<span class="message-time">${hours}:${minutes} ${ampm}</span>`;
+      messagesList.appendChild(li);
+    });
+    messagesList.scrollTo({ top: messagesList.scrollHeight, behavior: "smooth" });
+  });
+
+  // Send message
+  sendBtn.onclick = async () => {
+    if (!msgInput.value.trim()) return;
+    await addDoc(messagesRef, { text: msgInput.value, name: username, userId, time: serverTimestamp() });
+    msgInput.value = "";
+  };
+  msgInput.onkeypress = e => { if (e.key === "Enter") sendBtn.click(); };
+
+  // Auth check
+  onAuthStateChanged(auth, user => {
+    if (!user) {
+      alert("You must log in first");
+      window.location.href = "https://sites.google.com/view/tufftufftufftuff/";
+    }
+  });
+</script>
+
+</body>
+</html>
