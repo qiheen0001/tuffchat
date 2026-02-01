@@ -3,7 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <title>tuff chat</title>
+<style>
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
+const auth = getAuth();
+
+onAuthStateChanged(auth, user => {
+  if (!user) {
+    alert("You must log in first");
+    return;
+  }
+});
+
+// When sending messages
+const user = auth.currentUser;
+if (!user) return alert("Not logged in"); // prevents Firestore rejection
+
+await addDoc(messagesRef, {
+  text: msgInput.value,
+  uid: user.uid,
+  email: user.email,
+  time: serverTimestamp()
+});
+<style>
   <style>
     htmlbody, html {
       margin: 0;
