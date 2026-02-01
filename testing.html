@@ -125,6 +125,45 @@
   </div>
 
   <script type="module">
+    import { getAuth, setPersistence, browserLocalPersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+const auth = getAuth();
+
+// Set login to persist across tabs/windows
+setPersistence(auth, browserLocalPersistence)
+  .then(() => {
+    console.log("Persistence set to local");
+
+    // --- SIGN UP ---
+    signupBtn.onclick = () => {
+      const email = emailInput.value.trim();
+      const password = passwordInput.value.trim();
+      if (!email || !password) return alert("Enter email and password");
+
+      createUserWithEmailAndPassword(auth, email, password)
+        .then(userCred => {
+          console.log("Signed up:", userCred.user.email);
+          window.open("/tuff", "_blank"); // open chat after signup
+        })
+        .catch(err => alert(err.message));
+    };
+
+    // --- LOGIN ---
+    loginBtn.onclick = () => {
+      const email = emailInput.value.trim();
+      const password = passwordInput.value.trim();
+      if (!email || !password) return alert("Enter email and password");
+
+      signInWithEmailAndPassword(auth, email, password)
+        .then(userCred => {
+          console.log("Logged in:", userCred.user.email);
+          window.open("/tuff", "_blank"); // open chat after login
+        })
+        .catch(err => alert(err.message));
+    };
+  })
+  .catch(error => console.error("Persistence error:", error));
+
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
     import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
