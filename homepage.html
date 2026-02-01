@@ -3,7 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <title>tuff chat</title>
-<style>
+<script>
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+const auth = getAuth();
+let currentUser = null;
+
+// Check if user is logged in
+onAuthStateChanged(auth, user => {
+  if (user) {
+    currentUser = user;
+    sendBtn.disabled = false; // enable chat only for logged-in users
+  } else {
+    alert("You must log in first");
+    window.location.href = "https://sites.google.com/view/tufftufftufftuff/"; // redirect to login
+  }
+});
+
   import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
 const auth = getAuth();
@@ -25,7 +41,7 @@ await addDoc(messagesRef, {
   email: user.email,
   time: serverTimestamp()
 });
-<style>
+<script>
   <style>
     htmlbody, html {
       margin: 0;
