@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>tuff chat</title>
+  <style>
+    htmlbody, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: Arial, Helvetica, sans-serif;
+      background-color: #222;
+      color: white;
+    }
+
+    /* Login overlay */
+    #loginOverlay {
+      position: fixed;
+      inset: 0;
+      background: #222;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    #loginOverlay button {
+      padding: 12px 20px;
+      font-size: 18px;
+      margin-top: 10px;
+      border: 2px solid #333;
+      border-radius: 10px;
+      cursor: pointer;
+      background: #4285F4;
+      color: white;
+    }
+
+    /* Chat */
+    #chatContainer {
+      display: none;
+      padding: 20px;
+    }
+
+    #messages {
+      list-style: none;
+      padding: 10px;
+      max-height: 65vh;
+      overflow-y: auto;
+    }
+
+    #messages li {
+      display: inline-block;
+      clear: both;
+      padding: 10px 15px;
+      margin: 6px 0;
+      border-radius: 20px;
+      max-width: 70%;
+      word-wrap: break-word;
+    }
+
+    .self {
+      background: #25D366;
+      float: right;
+      text-align: right;
+    }
+
+    .other {
+      background: #333;
+      float: left;
+      text-align: left;
+    }
+
+    .message-name {
+      font-weight: bold;
+      font-size: 0.9em;
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .message-time {
+      font-size: 0.75em;
+      opacity: 0.7;
+      display: block;
+      margin-top: 4px;
+    }
+
+    #msg {
+      width: 78%;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 10px;
+      border: 2px solid #333;
+    }
+
+    #sendBtn, #logoutBtn {
+      padding: 10px 14px;
+      font-size: 16px;
+      border-radius: 10px;
+      border: 2px solid #333;
+      cursor: pointer;
+    }
+
+    #logoutBtn {
+      margin-left: 10px;
+      background: #f44336;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Login overlay -->
+  <div id="loginOverlay">
+    <h1>Login to Chat</h1>
+    <button id="googleSignInBtn">Sign in with Google</button>
+  </div>
+
+  <!-- Chat -->
+  <div id="chatContainer">
+    <button id="logoutBtn">Logout</button>
+    <ul id="messages"></ul>
+    <input id="msg" placeholder="Type a message">
+    <button id="sendBtn">Send</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBcrwcppQSIkY2W9uF2oX61WsiLD4fd53I",
+      authDomain: "tuffchat-9bed7.firebaseapp.com",
+      projectId: "tuffchat-9bed7",
+      storageBucket: "tuffchat-9bed7.appspot.com",
+      messagingSenderId: "1024456330904",
+      appId: "1:1024456330904:web:827d34d04d230f02630aed"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    const loginOverlay = document.getElementById("loginOverlay");
+    const googleSignInBtn = document.getElementById("googleSignInBtn");
+    const chatContainer = document.getElementById("chatContainer");
+    const messagesList = document.getElementById("messages");
+    const msgInput = document.getElementById("msg");
+    const sendBtn = document.getElementById("sendBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+
+    const messagesRef = collection(db, "messages");
+    const q = query(messagesRef, orderBy("time"));
+
+    // --- LOGIN ---
+    googleSignInBtn.onclick = async () => {
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (err) {
+        console.error("Login failed:", err);
+      }
+    };
+
+    // --- AUTH STATE ---
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        // Logged in
+        loginOverlay.style.display = "none";
+        chatContainer.style.display = "block";
+      } else {
+        // Logged out
+        loginOverlay.style.display = "flex";
+        chatContainer.style.display = "none";
+      }
+    });
+
+    // --- SEND MESSAGE ---
+    sendBtn.onclick = async () => {
+      const user = auth.currentUser;
+      if (!user || !msgInput.value.trim()) return;
+
+      await addDoc(messagesRef, {
+        text: msgInput.value,
+        name: user.displayName,
+        email: user.email,
+        uid: user.uid,
+        time: serverTimestamp()
+      });
+
+      msgInput.value = "";
+    };
+
+    msgInput.onkeypress = e => { if (e.key === "Enter") sendBtn.click(); };
+
+    // --- LOGOUT ---
+    logoutBtn.onclick = () => {
+      signOut(auth);
+    };
+
+    // --- LISTEN FOR MESSAGES ---
+    onSnapshot(q, snapshot => {
+      messagesList.innerHTML = "";
+
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const li = document.createElement("li");
+
+        li.className = (auth.currentUser && data.uid === auth.currentUser.uid) ? "self" : "other";
+
+        const date = data.time?.toDate ? data.time.toDate() : new Date();
+        const hours = date.getHours() % 12 || 12;
+        const minutes = String(date.getMinutes()).padStart(2, "0");
+        const ampm = date.getHours() >= 12 ? "PM" : "AM";
+
+        li.innerHTML = `
+          <span class="message-name">${data.name}</span>
+          ${data.text}
+          <span class="message-time">${hours}:${minutes} ${ampm}</span>
+        `;
+
+        messagesList.appendChild(li);
+      });
+
+      messagesList.scrollTo({ top: messagesList.scrollHeight, behavior: "smooth" });
+    });
+  </script>
+</body>
+</html>
