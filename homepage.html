@@ -5,7 +5,6 @@
   <title>tuff chat</title>
 
   <style>
-    /* ✅ FIXED: htmlbody → body */
     html, body {
       margin: 0;
       padding: 0;
@@ -101,25 +100,39 @@
       border: 2px solid #333;
       cursor: pointer;
     }
+
+    /* Draggable music container */
+    #draggableMusic {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 3000;
+      cursor: move;
+    }
   </style>
 </head>
 
 <body>
 
-  <!-- Name entry -->
   <div id="nameOverlay">
     <h1>Enter your name</h1>
     <input id="nameInput" placeholder="Your name">
     <button id="enterBtn">Enter chat</button>
   </div>
 
-  <!-- Chat -->
   <div id="chatContainer">
     <ul id="messages"></ul>
     <input id="msg" placeholder="Type a message">
     <button id="sendBtn">Send</button>
   </div>
 
+  <!-- Draggable Elfsight Music -->
+  <div id="draggableMusic">
+    <script src="https://elfsightcdn.com/platform.js" async></script>
+    <div class="elfsight-app-fc7ab89c-0207-4fbf-85c1-9727b239afd1"></div>
+  </div>
+
+  <!-- Firebase + Chat -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
     import {
@@ -149,7 +162,6 @@
     const nameOverlay = document.getElementById("nameOverlay");
     const nameInput = document.getElementById("nameInput");
     const enterBtn = document.getElementById("enterBtn");
-
     const chatContainer = document.getElementById("chatContainer");
     const messagesList = document.getElementById("messages");
     const msgInput = document.getElementById("msg");
@@ -165,11 +177,7 @@
 
     function enterChat() {
       const name = nameInput.value.trim();
-      if (!name) {
-        alert("Please enter a name");
-        return;
-      }
-
+      if (!name) return alert("Please enter a name");
       username = name;
       sessionStorage.setItem("username", username);
       nameOverlay.style.display = "none";
@@ -188,14 +196,12 @@
 
     sendBtn.onclick = async () => {
       if (!msgInput.value.trim()) return;
-
       await addDoc(messagesRef, {
         text: msgInput.value,
         name: username,
         userId: userId,
         time: Date.now()
       });
-
       msgInput.value = "";
     };
 
@@ -205,11 +211,9 @@
 
     onSnapshot(q, snapshot => {
       messagesList.innerHTML = "";
-
       snapshot.forEach(doc => {
         const data = doc.data();
         const li = document.createElement("li");
-
         li.className = data.userId === userId ? "self" : "other";
 
         const date = new Date(data.time);
@@ -226,10 +230,31 @@
         messagesList.appendChild(li);
       });
 
-      messagesList.scrollTo({
-        top: messagesList.scrollHeight,
-        behavior: "smooth"
-      });
+      messagesList.scrollTop = messagesList.scrollHeight;
+    });
+  </script>
+
+  <!-- Drag Script -->
+  <script>
+    const dragItem = document.getElementById("draggableMusic");
+    let offsetX = 0, offsetY = 0, isDragging = false;
+
+    dragItem.addEventListener("mousedown", (e) => {
+      isDragging = true;
+      offsetX = e.clientX - dragItem.offsetLeft;
+      offsetY = e.clientY - dragItem.offsetTop;
+      dragItem.style.bottom = "auto";
+      dragItem.style.right = "auto";
+    });
+
+    document.addEventListener("mousemove", (e) => {
+      if (!isDragging) return;
+      dragItem.style.left = e.clientX - offsetX + "px";
+      dragItem.style.top = e.clientY - offsetY + "px";
+    });
+
+    document.addEventListener("mouseup", () => {
+      isDragging = false;
     });
   </script>
 
