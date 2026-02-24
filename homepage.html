@@ -47,6 +47,15 @@
       padding: 10px;
       max-height: 65vh;
       overflow-y: auto;
+      /* Needed so floated children are contained */
+      overflow-x: hidden;
+    }
+
+    /* Clearfix for floated messages */
+    #messages::after {
+      content: "";
+      display: table;
+      clear: both;
     }
 
     #messages li {
@@ -57,19 +66,64 @@
       border-radius: 20px;
       max-width: 70%;
       word-wrap: break-word;
+
+      /* Animation base state */
+      opacity: 0;
+      transform: translateY(12px) scale(0.96);
+      animation: messageIn 0.35s cubic-bezier(0.34, 1.45, 0.64, 1) forwards;
     }
 
+    /* Self messages slide in from the right */
     .self {
       background: #25D366;
       float: right;
       text-align: right;
+      transform-origin: right bottom;
+      animation-name: messageInRight !important;
     }
 
+    /* Other messages slide in from the left */
     .other {
       background: #333;
       float: left;
       text-align: left;
+      transform-origin: left bottom;
+      animation-name: messageInLeft !important;
     }
+
+    @keyframes messageInRight {
+      0% {
+        opacity: 0;
+        transform: translateX(28px) translateY(8px) scale(0.93);
+      }
+      100% {
+        opacity: 1;
+        transform: translateX(0) translateY(0) scale(1);
+      }
+    }
+
+    @keyframes messageInLeft {
+      0% {
+        opacity: 0;
+        transform: translateX(-28px) translateY(8px) scale(0.93);
+      }
+      100% {
+        opacity: 1;
+        transform: translateX(0) translateY(0) scale(1);
+      }
+    }
+
+    /* Stagger animation for messages already in the list on load */
+    #messages li:nth-child(1)  { animation-delay: 0.00s; }
+    #messages li:nth-child(2)  { animation-delay: 0.04s; }
+    #messages li:nth-child(3)  { animation-delay: 0.08s; }
+    #messages li:nth-child(4)  { animation-delay: 0.12s; }
+    #messages li:nth-child(5)  { animation-delay: 0.16s; }
+    #messages li:nth-child(6)  { animation-delay: 0.20s; }
+    #messages li:nth-child(7)  { animation-delay: 0.24s; }
+    #messages li:nth-child(8)  { animation-delay: 0.28s; }
+    #messages li:nth-child(9)  { animation-delay: 0.32s; }
+    #messages li:nth-child(10) { animation-delay: 0.36s; }
 
     .message-name {
       font-weight: bold;
@@ -209,29 +263,56 @@
       if (e.key === "Enter") sendBtn.click();
     };
 
+    // Track known message IDs to detect truly new messages vs initial load
+    let knownIds = new Set();
+    let initialLoad = true;
+
     onSnapshot(q, snapshot => {
-      messagesList.innerHTML = "";
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        const li = document.createElement("li");
-        li.className = data.userId === userId ? "self" : "other";
+      // On initial load, render all at once with stagger via CSS nth-child
+      if (initialLoad) {
+        messagesList.innerHTML = "";
+        snapshot.forEach(doc => {
+          knownIds.add(doc.id);
+          const li = buildMessageEl(doc.data());
+          messagesList.appendChild(li);
+        });
+        messagesList.scrollTop = messagesList.scrollHeight;
+        initialLoad = false;
+        return;
+      }
 
-        const date = new Date(data.time);
-        const hours = date.getHours() % 12 || 12;
-        const minutes = String(date.getMinutes()).padStart(2, "0");
-        const ampm = date.getHours() >= 12 ? "PM" : "AM";
+      // After initial load, only append genuinely new messages
+      snapshot.docChanges().forEach(change => {
+        if (change.type === "added" && !knownIds.has(change.doc.id)) {
+          knownIds.add(change.doc.id);
+          const li = buildMessageEl(change.doc.data());
 
-        li.innerHTML = `
-          <span class="message-name">${data.name}</span>
-          ${data.text}
-          <span class="message-time">${hours}:${minutes} ${ampm}</span>
-        `;
+          // Force a fresh animation regardless of nth-child stagger delays
+          li.style.animationDelay = "0s";
 
-        messagesList.appendChild(li);
+          messagesList.appendChild(li);
+          messagesList.scrollTop = messagesList.scrollHeight;
+        }
       });
-
-      messagesList.scrollTop = messagesList.scrollHeight;
     });
+
+    function buildMessageEl(data) {
+      const li = document.createElement("li");
+      li.className = data.userId === userId ? "self" : "other";
+
+      const date = new Date(data.time);
+      const hours = date.getHours() % 12 || 12;
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+      const ampm = date.getHours() >= 12 ? "PM" : "AM";
+
+      li.innerHTML = `
+        <span class="message-name">${data.name}</span>
+        ${data.text}
+        <span class="message-time">${hours}:${minutes} ${ampm}</span>
+      `;
+
+      return li;
+    }
   </script>
 
   <!-- Drag Script -->
